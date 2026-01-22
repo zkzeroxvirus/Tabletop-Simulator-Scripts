@@ -1,9 +1,14 @@
---By Amuzet
-mod_name,version='Card Importer',3.2
+--By Amuzet and Modified by zkzeroxvirus
+mod_name,version='Card Importer',1.0
 self.setName('[854FD9]'..mod_name..' [49D54F]'..version)
 author,WorkshopID,GITURL='76561198045776458','https://steamcommunity.com/sharedfiles/filedetails/?id=1838051922','https://raw.githubusercontent.com/Amuzet/Tabletop-Simulator-Scripts/master/Magic/Importer.lua'
 coauthor='76561197968157267'--PIE
 lang='en'
+
+-- Backend Configuration
+-- Change this to your backend URL (use localhost for local testing or deployed URL for production)
+BACKEND_URL='PLACEHOLDER'
+
 --[[Classes]]
 local TBL={__call=function(t,k)if k then return t[k] end return t.___ end,__index=function(t,k)if type(t.___)=='table'then rawset(t,k,t.___())else rawset(t,k,t.___)end return t[k] end}
 function TBL.new(d,t)if t then t.___=d return setmetatable(t,TBL)else return setmetatable(d,TBL)end end
@@ -242,7 +247,7 @@ function setCard(wr,qTbl,originalData)
 				end
 
 			elseif json.layout=='art_series'then
-				WebRequrest.get('http://api.scryfall.com/cards/named?fuzzy='..json.card_faces[1].name,function(request)
+				WebRequrest.get(BACKEND_URL..'/card/'..json.card_faces[1].name,function(request)
           local locale_json = JSON.decode(request.text)
           if locale_json.object=='error' then
             Card(json,qTbl)
@@ -254,7 +259,7 @@ function setCard(wr,qTbl,originalData)
       elseif json.lang==lang then
         Card(json, qTbl)
       elseif json.lang=='en' then
-        WebRequest.get('https://api.scryfall.com/cards/'..json.set..'/'..json.collector_number..'/'..lang,function(request)
+        WebRequest.get(BACKEND_URL..'/cards/'..json.set..'/'..json.collector_number..'/'..lang,function(request)
           local locale_json = JSON.decode(request.text)
           if locale_json.object=='error' then
             Card(json,qTbl)
@@ -263,7 +268,7 @@ function setCard(wr,qTbl,originalData)
           end
         end)
       else
-        WebRequest.get('https://api.scryfall.com/cards/'..json.set..'/'..json.collector_number..'/en',function(a)setCard(a,qTbl,json)end)
+        WebRequest.get(BACKEND_URL..'/cards/'..json.set..'/'..json.collector_number..'/en',function(a)setCard(a,qTbl,json)end)
       end
       return
     -- elseif originalData then
@@ -272,7 +277,7 @@ function setCard(wr,qTbl,originalData)
 -- the above bit is probably supposed to be Card(originalData,qTbl) to spawn the original foreign card instead of the error json?
 -- replaced with a fuzzy search on the card name instead --> seems to find/get the english version after all
     elseif originalData and originalData.name then
-      WebRequest.get('https://api.scryfall.com/cards/named?fuzzy='..originalData.name:gsub('%W',''),function(a)setCard(a,qTbl)end)
+      WebRequest.get(BACKEND_URL..'/card/'..originalData.name:gsub('%W',''),function(a)setCard(a,qTbl)end)
       return
     elseif json.object=='error' then
       Player[qTbl.color].broadcast(json.details,{1,0,0})
@@ -358,7 +363,7 @@ local sOver={['10ED']='10E',DAR='DOM',MPS_AKH='MP2',MPS_KLD='MPS',FRF_UGIN='UGIN
 local dFile={
   uidCheck=',%w+-%w+-%w+-%w+-%w+',uid=function(line)
     local num,uid=string.match('__'..line..'__','__%a+,(%d+).+,([%w%-]+)__')
-    return num,'https://api.scryfall.com/cards/'..uid end,
+    return num,BACKEND_URL..'/cards/'..uid end,
 
   dckCheck='%[[%w_]+:%w+%]',dck=function(line)
     local num,set,col,name=line:match('(%d+).%W+([%w_]+):(%w+)%W+(%w.*)')
@@ -367,7 +372,7 @@ local dFile={
     if set:find('DD3_')then set=set:gsub('DD3_','')
     elseif sOver[set]then set=sOver[set]end
     set=set:gsub('_.*',''):lower()
-    return num,'https://api.scryfall.com/cards/'..set..'/'..col,alter end,
+    return num,BACKEND_URL..'/cards/'..set..'/'..col,alter end,
 
   decCheck='%[[%w_]+%]',dec=function(line)
     local num,set,name=line:match('(%d+).%W+([%w_]+)%W+(%w.*)')
@@ -380,13 +385,13 @@ local dFile={
     if set:find('DD3_')then set=set:gsub('DD3_','')
     elseif sOver[set]then set=sOver[set]end
     set=set:gsub('_.*',''):lower()
-    return num,'https://api.scryfall.com/cards/named?fuzzy='..name..'&set='..set,alter end,
+    return num,BACKEND_URL..'/card/'..name..'?set='..set,alter end,
 
   defCheck='%d+.%w+',def=function(line)
     local num,name=line:match('(%d+).(.*)')
     local alter=name:match(' #(http%S+)')or false
     name=name:gsub(' #.+','')
-    return num,'https://api.scryfall.com/cards/named?fuzzy='..name,alter end}
+    return num,BACKEND_URL..'/card/'..name,alter end}
 
 --[[Deck spawning]]
 function spawnDeck(wr,qTbl)
@@ -449,11 +454,11 @@ function spawnDeckFromScryfall(wr,qTbl)
 	
   qTbl.deck=#deck
   for i,u in ipairs(deck)do
-    Wait.time(function()WebRequest.get('https://api.scryfall.com/cards/'..u,function(c)
+    Wait.time(function()WebRequest.get(BACKEND_URL..'/cards/'..u,function(c)
 
 					local t=JSON.decode(c.text)
 					if t.object~='card'then
-						WebRequest.get('https://api.scryfall.com/cards/named?fuzzy=blankcard',function(c)setCard(c,qTbl)end)
+						WebRequest.get(BACKEND_URL..'/card/blankcard',function(c)setCard(c,qTbl)end)
 					else setCard(c,qTbl) end end)end,i*Tick)
   end
 	
@@ -478,8 +483,8 @@ function spawnCSV(wr,qTbl)
     elseif(setCSV==3)or(
       setCSV==4 and tbl[1]:find('main'))or(
       setCSV==7 and not tbl[1]:find('board'))then
-      local b='https://api.scryfall.com/cards/named?fuzzy='..tbl[3]
-      if tbl[setCSV]and tbl[setCSV]~='000'then b=b..'&set='..tbl[setCSV]end
+      local b=BACKEND_URL..'/card/'..tbl[3]
+      if tbl[setCSV]and tbl[setCSV]~='000'then b=b..'?set='..tbl[setCSV]end
       for i=1,tbl[2]do table.insert(deck,b)end
     else--Side/Maybe
       side=side..tbl[2]..' '..tbl[3]..'\n'
@@ -496,10 +501,10 @@ function spawnCSV(wr,qTbl)
                 WebRequest.get(u,function(c)
                                    local t=JSON.decode(c.text)
                                    if t.object~='card'then
-                                     if u:find('&') then
-                                       WebRequest.get(u:gsub('&.+',''),function(c)setCard(c,qTbl)end)
+                                     if u:find('%?') then
+                                       WebRequest.get(u:gsub('%?.*',''),function(c)setCard(c,qTbl)end)
                                      else
-                                       WebRequest.get('https://api.scryfall.com/cards/named?fuzzy=blankcard',function(c)setCard(c,qTbl)end)
+                                       WebRequest.get(BACKEND_URL..'/card/blankcard',function(c)setCard(c,qTbl)end)
                                      end
                                    else
                                      setCard(c,qTbl)
@@ -546,7 +551,7 @@ local DeckSites={
           for i=1,card.quantity do
             qTbl.deck=qTbl.deck+1
             Wait.time(function()
-              WebRequest.get('https://api.scryfall.com/cards/'..card.scryfall_id,
+              WebRequest.get(BACKEND_URL..'/cards/'..card.scryfall_id,
                 function(c)setCard(c,qTbl)end)end,qTbl.deck*Tick*2)
           end
         end
@@ -577,7 +582,7 @@ local DeckSites={
     else return a,function(wr,qTbl)Player[qTbl.color].broadcast('This MTGgoldfish url is malformated.\nOr unsupported contact Amuzet.')end end end,
   cubecobra=function(a)return a:gsub('cube/deck','cube/deck/download/mtgo'):gsub('?seat=', '/'),spawnDeck end
 }
-local apiRnd='http://api.scryfall.com/cards/random?q='
+local apiRnd=BACKEND_URL..'/random?q='
 local apiSet=apiRnd..'is:booster+s:'
 function rarity(m,r,u)
   if math.random(1,m or 36)==1 then return'r:mythic'
@@ -656,7 +661,7 @@ Booster['cmm']=function(p)
 --Custom Booster Packs
 Booster.CMMDRAFT=function(qTbl)return Booster('cmm',true)end
 Booster.ADAMS=function(qTbl)
-  local pack,u={},'http://api.scryfall.com/cards/random?q=f:standard+'
+  local pack,u={},BACKEND_URL..'/random?q=f:standard+'
   for c in ('wubrg'):gmatch('.')do
     table.insert(pack,u..'r:common+c:'..c)end
   for i=1,5 do table.insert(pack,u..'r:common+-t:basic')end
@@ -667,7 +672,7 @@ Booster.ADAMS=function(qTbl)
   if math.random(1,2)==1 then pack[#pack-1]=pack[#pack]end
   return pack end
 Booster.STANDARD=function(qTbl)
-  local pack,u={},'http://api.scryfall.com/cards/random?q=f:standard+'
+  local pack,u={},BACKEND_URL..'/random?q=f:standard+'
   for c in ('wubrg'):gmatch('.')do
     table.insert(pack,u..'r:common+c:'..c)end
   for i=1,5 do table.insert(pack,u..'r:common+-t:basic')end
@@ -678,7 +683,7 @@ Booster.STANDARD=function(qTbl)
   if math.random(1,2)==1 then pack[#pack-1]=pack[#pack]end
   return pack end
 Booster.MANAMARKET=function(qTbl)
-  local pack,u={},'http://api.scryfall.com/cards/random?q=f:standard+'
+  local pack,u={},BACKEND_URL..'/random?q=f:standard+'
   for c in ('wubrg'):gmatch('.')do
     table.insert(pack,u..'r:common+c:'..c)end
   for i=1,5 do table.insert(pack,u..'r:common+-t:basic')end
@@ -693,7 +698,7 @@ Booster.MANAMARKET=function(qTbl)
   return pack end
 Booster.PLANAR=function(qTbl)
 	--((t:plane or t:phenomenon) o:planeswalk) or 
-	local u='http://api.scryfall.com/cards/random?q='
+	local u=BACKEND_URL..'/random?q='
 	local additional="+or+o:'planar+di'+or+o:'will+of+the+planeswalker'"
 	
 	local pack={
@@ -809,7 +814,7 @@ Importer=setmetatable({
   request={},
   --Functions
   Search=function(qTbl)
-    WebRequest.get('https://api.scryfall.com/cards/search?q='..qTbl.name,function(wr)
+    WebRequest.get(BACKEND_URL..'/search?q='..qTbl.name,function(wr)
         spawnList(wr,qTbl)end)end,
 
   Back=function(qTbl)
@@ -819,16 +824,16 @@ Importer=setmetatable({
     endLoop()end,
 
   Spawn=function(qTbl)
-    WebRequest.get('https://api.scryfall.com/cards/named?fuzzy='..qTbl.name,function(wr)
+    WebRequest.get(BACKEND_URL..'/card/'..qTbl.name,function(wr)
         local obj=JSON.decode(wr.text)
         if obj.object=='card'and obj.type_line:match('Token')then
-          WebRequest.get('https://api.scryfall.com/cards/search?unique=card&q=t%3Atoken+'..qTbl.name:gsub(' ','%%20'),function(wr)
+          WebRequest.get(BACKEND_URL..'/search?q=t%3Atoken+'..qTbl.name:gsub(' ','%%20'),function(wr)
               spawnList(wr,qTbl)end)
           return false
         else setCard(wr,qTbl)end end)end,
 
   Token=function(qTbl)
-    WebRequest.get('https://api.scryfall.com/cards/named?fuzzy='..qTbl.name,function(wr)
+    WebRequest.get(BACKEND_URL..'/card/'..qTbl.name,function(wr)
         local json=JSON.decode(wr.text)
         if json.all_parts then
           qTbl.deck=#json.all_parts-1
@@ -848,7 +853,7 @@ Importer=setmetatable({
           Player[qTbl.color].broadcast('No Tokens Found',{0.9,0.9,0.9})endLoop()end end)end,
 
   Print=function(qTbl)
-    local url,n='https://api.scryfall.com/cards/search?unique=prints&q=',qTbl.name:lower():gsub('%s',''):gsub('%%20','')    -- pieHere, making search with spaces possible
+    local url,n=BACKEND_URL..'/search?q=',qTbl.name:lower():gsub('%s',''):gsub('%%20','')    -- pieHere, making search with spaces possible
     if('plains island swamp mountain forest'):find(n)then
       --url=url:gsub('prints','art')end
       broadcastToAll('Please Do NOT print Basics\nIf you would like a specific Basic specify that in your decklist\nor Spawn it using "Scryfall island&set=kld" the corresponding setcode',{0.9,0.9,0.9})
@@ -863,11 +868,11 @@ Importer=setmetatable({
   end,
 
   Legalities=function(qTbl)
-    WebRequest.get('http://api.scryfall.com/cards/named?fuzzy='..qTbl.name,function(wr)
+    WebRequest.get(BACKEND_URL..'/card/'..qTbl.name,function(wr)
         for f,l in pairs(JSON.decode(wr.text:match('"legalities":({[^}]+})')))do printToAll(l..' in '..f) end endLoop()end)end,
 
   Legal=function(qTbl)
-    WebRequest.get('http://api.scryfall.com/cards/named?fuzzy='..qTbl.name,function(wr)
+    WebRequest.get(BACKEND_URL..'/card/'..qTbl.name,function(wr)
         local n,s,t='','',JSON.decode(wr.text:match('"legalities":({[^}]+})'))
         for f,l in pairs(t)do if l=='legal'and s==''then s='[11ff11]'..f:sub(1,1):upper()..f:sub(2)..' Legal'
           elseif l=='not_legal'and s~=''then if n==''then n='Not Legal in:' end n=n..' '..f end end
@@ -883,13 +888,13 @@ Importer=setmetatable({
         endLoop()end)end,
 
   Text=function(qTbl)
-    WebRequest.get('https://api.scryfall.com/cards/named?format=text&fuzzy='..qTbl.name,function(wr)
+    WebRequest.get(BACKEND_URL..'/card/'..qTbl.name,function(wr)
         if qTbl.target then qTbl.target.setDescription(wr.text)
         else Player[qTbl.color].broadcast(wr.text)end
         endLoop()end)end,
 
   Rules=function(qTbl)
-    WebRequest.get('https://api.scryfall.com/cards/named?fuzzy='..qTbl.name,function(wr)
+    WebRequest.get(BACKEND_URL..'/card/'..qTbl.name,function(wr)
       local cardDat = JSON.decode(wr.text)
       if cardDat.object=="error" then
         broadcastToAll(cardDat.details,{0.9,0.9,0.9})
@@ -922,7 +927,7 @@ Importer=setmetatable({
   end,
 
   Mystery=function(qTbl)
-    local t,url={},'http://api.scryfall.com/cards/random?q=set:mb1+'
+    local t,url={},BACKEND_URL..'/random?q=set:mb1+'
     for _,r in pairs({'common','uncommon'})do
       for _,c in pairs({'w','u','b','r','g'})do
         table.insert(t,url..('r:%s+c:%s+id:%s'):format(r,c,c))
@@ -932,7 +937,7 @@ Importer=setmetatable({
     table.insert(t,url..'c:m+-r:rare+-r:mythic')
     table.insert(t,url..'(r:rare+or+r:mythic)+frame:2015')
     table.insert(t,url..'(r:rare+or+r:mythic)+-frame:2015')
-    local fSlot={'http://api.scryfall.com/cards/random?q=set:cmb1','http://api.scryfall.com/cards/random?q=set:fmb1'}
+    local fSlot={BACKEND_URL..'/random?q=set:cmb1',BACKEND_URL..'/random?q=set:fmb1'}
 
     qTbl.url='Mystery Booster'
     if qTbl.name:find('playtest')then
@@ -956,7 +961,7 @@ Importer=setmetatable({
 
 		elseif #qTbl.name<5 then
       if qTbl.name==''then qTbl.name='ori'end
-      WebRequest.get('https://api.scryfall.com/sets/'..qTbl.name,function(w)
+      WebRequest.get(BACKEND_URL..'/sets/'..qTbl.name,function(w)
         local j=JSON.decode(w.text)
         if j.object=='set'then
           qTbl.url='Booster '..j.name
@@ -971,7 +976,7 @@ Importer=setmetatable({
     else Player[qTbl.color].broadcast('No Booster found to make')endLoop()end end,
 
   Random=function(qTbl)
-    local url,q1='https://api.scryfall.com/cards/random','?q=is:hires'
+    local url,q1=BACKEND_URL..'/random','?q=is:hires'
     if qTbl.name:find('q=')then url=url..qTbl.full:match('%s(%S+)')else
       for _,tbl in ipairs({{w='c%3Aw',u='c%3Au',b='c%3Ab',r='c%3Ar',g='c%3Ag',n='c%3Ac'},
           {i='t%3Ainstant',s='t%3Asorcery',e='t%3Aenchantment',c='t%3Acreature',a='t%3Aartifact',l='t%3Aland',p='t%Aplaneswalker',o='t%3Acontraption'}})do
@@ -1034,10 +1039,7 @@ Importer=setmetatable({
 
     },{
   __call=function(t,qTbl)
-    if true then
-        printToAll('SCRYFALL: As of Jan 19 2026 the Importer will be Automaticly off to be updated and cleaned up! Cards and Decks in your Saved Objects/Games should continue to work fine. The images they are using will be changing in the future. Until then I suggest using Frogtown.me',{1,0.5,0.5})
-        return
-    elseif qTbl then
+    if qTbl then
       qTbl.text=newText(qTbl.position,Player[qTbl.color].steam_name..'\n'..qTbl.full)
       table.insert(t.request,qTbl)
       log(qTbl,'Importer Request '..qTbl.color)
@@ -1109,7 +1111,8 @@ function onLoad(data)
       else o.destruct()end
       break end end
 
-  WebRequest.get(GITURL,self,'uVersion')
+  -- Autoupdate disabled - uncomment to re-enable (change GITURL to point to your own repo if needed)
+  -- WebRequest.get(GITURL,self,'uVersion')
   if data~=''then Back=JSON.decode(data)end
   Back=TBL.new(Back)
   self.createButton({label="+",click_function='registerModule',function_owner=self,position={0,0.2,-0.5},height=100,width=100,font_size=100,tooltip="Adds Oracle Look Up"})
