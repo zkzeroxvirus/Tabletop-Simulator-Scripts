@@ -7,7 +7,7 @@ lang='en'
 
 -- Backend Configuration
 -- Change this to your backend URL (use localhost for local testing or deployed URL for production)
-BACKEND_URL='PLACEHOLDER'
+BACKEND_URL='https://mtg-card-importer-backend.onrender.com'
 
 --[[Classes]]
 local TBL={__call=function(t,k)if k then return t[k] end return t.___ end,__index=function(t,k)if type(t.___)=='table'then rawset(t,k,t.___())else rawset(t,k,t.___)end return t[k] end}
@@ -1071,7 +1071,7 @@ MODES=MODES..' '..k end end
 --[[Functions used everywhere else]]
 local Usage=[[    [b]%s
 [b][0077ff]Scryfall[/b] [i]URL[/i]  [-][Spawn that deck list or Image]
-As of Jan 19 2026 the Importer will be Automaticly off to be updated and cleaned up! Cards and Decks in your Saved Objects/Games should continue to work fine. Until then I suggest using Frogtown.me ]]
+ Hello this is Sirin, ive modified Amuzet's Card Importer to work with my own backend.]]
 function endLoop()if Importer.request[1]then Importer.request[1].text()table.remove(Importer.request,1)end Importer()end
 function delay(fN,tbl)local timerParams={function_name=fN,identifier=fN..'Timer'}
   if type(tbl)=='table'then timerParams.parameters=tbl end
@@ -1104,23 +1104,33 @@ end
 --[[Tabletop Callbacks]]
 function onSave()self.script_state=JSON.encode(Back)end
 function onLoad(data)
-  for _,o in pairs(getObjects())do
-    if o.getName():find(mod_name)and o~=self then
-      if version<o.getVar('version')then
-        self.destruct()
-      else o.destruct()end
-      break end end
+  -- Guard against nil objects or missing properties during load
+  local objs=getObjects() or {}
+  for _,o in pairs(objs)do
+    if o and o.getName and o.getVar and o~=self then
+      local name=o.getName() or ''
+      if name:find(mod_name)then
+        local other=o.getVar('version')
+        if other and version<other then
+          self.destruct()
+        else o.destruct()end
+        break
+      end
+    end
+  end
 
   -- Autoupdate disabled - uncomment to re-enable (change GITURL to point to your own repo if needed)
   -- WebRequest.get(GITURL,self,'uVersion')
   if data~=''then Back=JSON.decode(data)end
+  if not Back or type(Back)~='table'then Back={}end
+  Back.___=Back.___ or 'https://i.stack.imgur.com/787gj.png'
   Back=TBL.new(Back)
   self.createButton({label="+",click_function='registerModule',function_owner=self,position={0,0.2,-0.5},height=100,width=100,font_size=100,tooltip="Adds Oracle Look Up"})
   Usage=Usage:format(self.getName())
   uNotebook('SHelp',Usage)
   -- uNotebook('SData',self.script_state)   -- pieHere, remove the debug text popping into the notebook
   local u=Usage:gsub('\n\n.*','\nFull capabilities listed in Notebook: SHelp')
-  u=u..'\nWhats New: [990000]Importer Disabled.'
+  u=u..'\nWhats New: [990000]Importer Modified by Sirin.'
   self.setDescription(u:gsub('[^\n]*\n','',1):gsub('%]  %[',']\n['))
   printToAll(u,{0.9,0.9,0.9})
   onChat('Scryfall clear back')end
