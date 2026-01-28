@@ -3,6 +3,9 @@ mod_name = 'Portable Booster Generator'
 version = 1.5
 author = '76561198045776458'
 WorkshopID='https://steamcommunity.com/sharedfiles/filedetails/?id=1880174681'
+-- Backend Configuration
+-- Change this to your backend URL (use localhost for local testing or deployed URL for production)
+BACKEND_URL='https://mtg-card-importer-backend.onrender.com'
 self.sticky = false
 self.setName(mod_name..' '..version)
 self.setRotation({0,0,0})
@@ -47,7 +50,7 @@ function setLoad(tag,count)
   self.editButton({index=0,font_size=400})
   printToAll('Loading '..getUI('text')..' '..count)
   for i=1,count do Wait.time(function()
-    local url='https://api.scryfall.com/cards/'..tag..'/'..i..'/en'
+    local url=BACKEND_URL..'/cards/'..tag..'/'..i..'/en'
     self.editButton({index=0,label=tag..'\n'..i,})
     WebRequest.get(url,function(wr)initCard(wr)end)
   end,i*Tic)end end
