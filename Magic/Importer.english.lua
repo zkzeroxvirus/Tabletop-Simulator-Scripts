@@ -1066,7 +1066,7 @@ Importer = setmetatable({
   --[[Search]]
   ---@param qTbl callTbl
   Search = function(qTbl)
-    WebRequest.get('https://api.scryfall.com/cards/search?q=' .. qTbl.name, function(wr)
+    WebRequest.get(BACKEND_URL..'/search?q=' .. qTbl.name, function(wr)
       spawnList(wr, qTbl)
     end)
   end,
@@ -1084,7 +1084,7 @@ Importer = setmetatable({
     WebRequest.get(BACKEND_URL..'/card/' .. qTbl.name, function(wr)
       local obj = JSON.decode(wr.text)
       if obj.object == 'card' and obj.type_line:match('Token') then
-        WebRequest.get('https://api.scryfall.com/cards/search?unique=card&q=t%3Atoken+' .. qTbl.name:gsub(' ', '%%20'), function(wr)
+        WebRequest.get(BACKEND_URL..'/search?q=t%3Atoken+' .. qTbl.name:gsub(' ', '%%20'), function(wr)
           spawnList(wr, qTbl)
         end)
         return false
@@ -1129,7 +1129,7 @@ Importer = setmetatable({
   --[[Print]]
   ---@param qTbl callTbl
   Print = function(qTbl)
-    local url, n = 'https://api.scryfall.com/cards/search?unique=prints&q=', qTbl.name:lower():gsub('%s', ''):gsub('%%20', '') -- pieHere, making search with spaces possible
+    local url, n = BACKEND_URL..'/search?unique=prints&q=', qTbl.name:lower():gsub('%s', ''):gsub('%%20', '') -- pieHere, making search with spaces possible
     if ('plains island swamp mountain forest'):find(n) then
       --url=url:gsub('prints','art')end
       broadcastToAll('Please Do NOT print Basics\nIf you would like a specific Basic specify that in your decklist\nor Spawn it using "Scryfall island&set=kld" the corresponding setcode', { 0.9, 0.9, 0.9 })
@@ -1268,7 +1268,7 @@ Importer = setmetatable({
       spawnPack(qTbl, Booster[qTbl.name:upper()](qTbl))
     elseif #qTbl.name < 5 then
       if qTbl.name == '' then qTbl.name = 'ori' end
-      WebRequest.get('https://api.scryfall.com/sets/' .. qTbl.name, function(w)
+      WebRequest.get(BACKEND_URL..'/sets/' .. qTbl.name, function(w)
         local j = JSON.decode(w.text)
         if j.object == 'set' then
           qTbl.url = 'Booster ' .. j.name
