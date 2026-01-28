@@ -4,6 +4,11 @@ self.setName('[854FD9]' .. mod_name .. ' [49D54F]' .. version)
 author, WorkshopID, GITURL = '76561198045776458', 'https://steamcommunity.com/sharedfiles/filedetails/?id=1838051922', 'https://raw.githubusercontent.com/Amuzet/Tabletop-Simulator-Scripts/master/Magic/Importer.lua'
 coauthor = '76561197968157267' --PIE
 lang = 'en'
+
+-- Backend Configuration
+-- Change this to your backend URL (use localhost for local testing or deployed URL for production)
+BACKEND_URL='https://mtg-card-importer-backend.onrender.com'
+
 --[[Classes]]
 
 -- Table with a default value for each key.
@@ -309,7 +314,7 @@ function setCard(webRequest, qTbl, originalData)
           originalData.card_faces[2].image_uris = jsonCardInformation.card_faces[2].image_uris
         end
       elseif jsonCardInformation.layout == 'art_series' then
-        WebRequrest.get('http://api.scryfall.com/cards/named?fuzzy=' .. jsonCardInformation.card_faces[1].name, function(request)
+        WebRequrest.get(BACKEND_URL..'/card/' .. jsonCardInformation.card_faces[1].name, function(request)
           local locale_json = JSON.decode(request.text)
           if locale_json.object == 'error' then
             Card(jsonCardInformation, qTbl)
@@ -320,7 +325,7 @@ function setCard(webRequest, qTbl, originalData)
       elseif jsonCardInformation.lang == lang then
         Card(jsonCardInformation, qTbl)
       elseif jsonCardInformation.lang == 'en' then
-        WebRequest.get('https://api.scryfall.com/cards/' .. jsonCardInformation.set .. '/' .. jsonCardInformation.collector_number .. '/' .. lang, function(request)
+        WebRequest.get(BACKEND_URL..'/cards/' .. jsonCardInformation.set .. '/' .. jsonCardInformation.collector_number .. '/' .. lang, function(request)
           local locale_json = JSON.decode(request.text)
           if locale_json.object == 'error' then
             Card(jsonCardInformation, qTbl)
@@ -329,7 +334,7 @@ function setCard(webRequest, qTbl, originalData)
           end
         end)
       else
-        WebRequest.get('https://api.scryfall.com/cards/' .. jsonCardInformation.set .. '/' .. jsonCardInformation.collector_number .. '/en', function(a) setCard(a, qTbl, jsonCardInformation) end)
+        WebRequest.get(BACKEND_URL..'/cards/' .. jsonCardInformation.set .. '/' .. jsonCardInformation.collector_number .. '/en', function(a) setCard(a, qTbl, jsonCardInformation) end)
       end
       return
       -- elseif originalData then
@@ -338,7 +343,7 @@ function setCard(webRequest, qTbl, originalData)
       -- the above bit is probably supposed to be Card(originalData,qTbl) to spawn the original foreign card instead of the error json?
       -- replaced with a fuzzy search on the card name instead --> seems to find/get the english version after all
     elseif originalData and originalData.name then
-      WebRequest.get('https://api.scryfall.com/cards/named?fuzzy=' .. originalData.name:gsub('%W', ''), function(a) setCard(a, qTbl) end)
+      WebRequest.get(BACKEND_URL..'/card/' .. originalData.name:gsub('%W', ''), function(a) setCard(a, qTbl) end)
       return
     elseif jsonCardInformation.object == 'error' then
       Player[qTbl.color].broadcast(jsonCardInformation.details, { 1, 0, 0 })
@@ -433,7 +438,7 @@ local dFile = {
   uidCheck = ',%w+-%w+-%w+-%w+-%w+',
   uid = function(line)
     local num, uid = string.match('__' .. line .. '__', '__%a+,(%d+).+,([%w%-]+)__')
-    return num, 'https://api.scryfall.com/cards/' .. uid
+    return num, BACKEND_URL..'/cards/' .. uid
   end,
 
   dckCheck = '%[[%w_]+:%w+%]',
@@ -447,7 +452,7 @@ local dFile = {
       set = sOver[set]
     end
     set = set:gsub('_.*', ''):lower()
-    return num, 'https://api.scryfall.com/cards/' .. set .. '/' .. col, alter
+    return num, BACKEND_URL..'/cards/' .. set .. '/' .. col, alter
   end,
 
   decCheck = '%[[%w_]+%]',
@@ -465,7 +470,7 @@ local dFile = {
       set = sOver[set]
     end
     set = set:gsub('_.*', ''):lower()
-    return num, 'https://api.scryfall.com/cards/named?fuzzy=' .. name .. '&set=' .. set, alter
+    return num, BACKEND_URL..'/card/' .. name .. '&set=' .. set, alter
   end,
 
   defCheck = '%d+.%w+',
@@ -473,7 +478,7 @@ local dFile = {
     local num, name = line:match('(%d+).(.*)')
     local alter = name:match(' #(http%S+)') or false
     name = name:gsub(' #.+', '')
-    return num, 'https://api.scryfall.com/cards/named?fuzzy=' .. name, alter
+    return num, BACKEND_URL..'/card/' .. name, alter
   end
 }
 
@@ -551,10 +556,10 @@ function spawnDeckFromScryfall(wr, qTbl)
   qTbl.deck = #deck
   for i, u in ipairs(deck) do
     Wait.time(function()
-      WebRequest.get('https://api.scryfall.com/cards/' .. u, function(c)
+      WebRequest.get(BACKEND_URL..'/cards/' .. u, function(c)
         local t = JSON.decode(c.text)
         if t.object ~= 'card' then
-          WebRequest.get('https://api.scryfall.com/cards/named?fuzzy=blankcard', function(c) setCard(c, qTbl) end)
+          WebRequest.get(BACKEND_URL..'/card/blankcard', function(c) setCard(c, qTbl) end)
         else
           setCard(c, qTbl)
         end
@@ -587,7 +592,7 @@ function spawnCSV(webRequest, qTbl)
     elseif (setCSV == 3) or (
           setCSV == 4 and tbl[1]:find('main')) or (
           setCSV == 7 and not tbl[1]:find('board')) then
-      local b = 'https://api.scryfall.com/cards/named?fuzzy=' .. tbl[3]
+      local b = BACKEND_URL..'/card/' .. tbl[3]
       if tbl[setCSV] and tbl[setCSV] ~= '000' then b = b .. '&set=' .. tbl[setCSV] end
       for _ = 1, tbl[2] do table.insert(deck, b) end
     else --Side/Maybe
@@ -608,7 +613,7 @@ function spawnCSV(webRequest, qTbl)
           if u:find('&') then
             WebRequest.get(u:gsub('&.+', ''), function(c) setCard(c, qTbl) end)
           else
-            WebRequest.get('https://api.scryfall.com/cards/named?fuzzy=blankcard', function(c) setCard(c, qTbl) end)
+            WebRequest.get(BACKEND_URL..'/card/blankcard', function(c) setCard(c, qTbl) end)
           end
         else
           setCard(c, qTbl)
@@ -661,7 +666,7 @@ local DeckSites = {
           for _ = 1, card.quantity do
             qTbl.deck = qTbl.deck + 1
             Wait.time(function()
-              WebRequest.get('https://api.scryfall.com/cards/' .. card.scryfall_id,
+              WebRequest.get(BACKEND_URL..'/cards/' .. card.scryfall_id,
                 function(c) setCard(c, qTbl) end)
             end, qTbl.deck * TickConstant * 2)
           end
@@ -719,7 +724,7 @@ local DeckSites = {
         for _ = 1, v.quantity do
           qTbl.deck = qTbl.deck + 1
           Wait.time(function()
-            WebRequest.get('https://api.scryfall.com/cards/' .. v.card.uid,
+            WebRequest.get(BACKEND_URL..'/cards/' .. v.card.uid,
               function(c) setCard(c, qTbl) end)
           end, qTbl.deck * TickConstant * 2)
         end
@@ -744,7 +749,7 @@ local DeckSites = {
         end
         --Only include cards that aren't on the maybeboard
         if line:match(',false,') then
-          local b = 'https://api.scryfall.com/cards/' .. tbl[5] .. '/' .. tbl[7]
+          local b = BACKEND_URL..'/cards/' .. tbl[5] .. '/' .. tbl[7]
           c = c + 1
           if tbl[9]:match('http') then
             qTbl.image[c] = tbl[9]
@@ -756,7 +761,7 @@ local DeckSites = {
     end
   end]]
 }
-local apiRnd = 'http://api.scryfall.com/cards/random?q='
+local apiRnd = BACKEND_URL..'/random?q='
 local apiSet = apiRnd .. 'is:booster+s:'
 function rarity(m, r, u)
   if math.random(1, m or 36) == 1 then
@@ -864,7 +869,7 @@ local Booster = setmetatable({
     return j
   end,
   ADAMS = function(qTbl)
-    local pack, u = {}, 'http://api.scryfall.com/cards/random?q=f:standard+'
+    local pack, u = {}, BACKEND_URL..'/random?q=f:standard+'
     for c in ('wubrg'):gmatch('.') do
       table.insert(pack, u .. 'r:common+c:' .. c)
     end
@@ -877,7 +882,7 @@ local Booster = setmetatable({
     return pack
   end,
   STANDARD = function(qTbl)
-    local pack, u = {}, 'http://api.scryfall.com/cards/random?q=f:standard+'
+    local pack, u = {}, BACKEND_URL..'/random?q=f:standard+'
     for c in ('wubrg'):gmatch('.') do
       table.insert(pack, u .. 'r:common+c:' .. c)
     end
@@ -890,7 +895,7 @@ local Booster = setmetatable({
     return pack
   end,
   MANAMARKET = function(qTbl)
-    local pack, u = {}, 'http://api.scryfall.com/cards/random?q=f:standard+'
+    local pack, u = {}, BACKEND_URL..'/random?q=f:standard+'
     for c in ('wubrg'):gmatch('.') do
       table.insert(pack, u .. 'r:common+c:' .. c)
     end
@@ -1076,7 +1081,7 @@ Importer = setmetatable({
   --[[Spawn]]
   ---@param qTbl callTbl
   Spawn = function(qTbl)
-    WebRequest.get('https://api.scryfall.com/cards/named?fuzzy=' .. qTbl.name, function(wr)
+    WebRequest.get(BACKEND_URL..'/card/' .. qTbl.name, function(wr)
       local obj = JSON.decode(wr.text)
       if obj.object == 'card' and obj.type_line:match('Token') then
         WebRequest.get('https://api.scryfall.com/cards/search?unique=card&q=t%3Atoken+' .. qTbl.name:gsub(' ', '%%20'), function(wr)
@@ -1091,7 +1096,7 @@ Importer = setmetatable({
   --[[Token]]
   ---@param qTbl callTbl
   Token = function(qTbl)
-    WebRequest.get('https://api.scryfall.com/cards/named?fuzzy=' .. qTbl.name, function(wr)
+    WebRequest.get(BACKEND_URL..'/card/' .. qTbl.name, function(wr)
       local json = JSON.decode(wr.text)
       if json.all_parts then
         qTbl.deck = #json.all_parts - 1
@@ -1140,7 +1145,7 @@ Importer = setmetatable({
   --[[Legalities]]
   ---@param qTbl callTbl
   Legalities = function(qTbl)
-    WebRequest.get('http://api.scryfall.com/cards/named?fuzzy=' .. qTbl.name, function(wr)
+    WebRequest.get(BACKEND_URL..'/card/' .. qTbl.name, function(wr)
       for f, l in pairs(JSON.decode(wr.text:match('"legalities":({[^}]+})'))) do printToAll(l .. ' in ' .. f) end
       endLoop()
     end)
@@ -1148,7 +1153,7 @@ Importer = setmetatable({
   --[[Legal]]
   ---@param qTbl callTbl
   Legal = function(qTbl)
-    WebRequest.get('http://api.scryfall.com/cards/named?fuzzy=' .. qTbl.name, function(wr)
+    WebRequest.get(BACKEND_URL..'/card/' .. qTbl.name, function(wr)
       local n, s, t = '', '', JSON.decode(wr.text:match('"legalities":({[^}]+})'))
       for f, l in pairs(t) do
         if l == 'legal' and s == '' then
@@ -1177,7 +1182,7 @@ Importer = setmetatable({
   --[[Text]]
   ---@param qTbl callTbl
   Text = function(qTbl)
-    WebRequest.get('https://api.scryfall.com/cards/named?format=text&fuzzy=' .. qTbl.name, function(wr)
+    WebRequest.get(BACKEND_URL..'/card/' .. qTbl.name, function(wr)
       if qTbl.target then
         qTbl.target.setDescription(wr.text)
       else
@@ -1189,7 +1194,7 @@ Importer = setmetatable({
   --[[Rules]]
   ---@param qTbl callTbl
   Rules = function(qTbl)
-    WebRequest.get('https://api.scryfall.com/cards/named?fuzzy=' .. qTbl.name, function(wr)
+    WebRequest.get(BACKEND_URL..'/card/' .. qTbl.name, function(wr)
       local cardDat = JSON.decode(wr.text)
       if cardDat.object == "error" then
         broadcastToAll(cardDat.details, { 0.9, 0.9, 0.9 })
@@ -1223,7 +1228,7 @@ Importer = setmetatable({
   --[[Mystery]]
   ---@param qTbl callTbl
   Mystery = function(qTbl)
-    local t, url = {}, 'http://api.scryfall.com/cards/random?q=set:mb1+'
+    local t, url = {}, BACKEND_URL..'/random?q=set:mb1+'
     for _, r in pairs({ 'common', 'uncommon' }) do
       for _, c in pairs({ 'w', 'u', 'b', 'r', 'g' }) do
         table.insert(t, url .. ('r:%s+c:%s+id:%s'):format(r, c, c))
@@ -1233,7 +1238,7 @@ Importer = setmetatable({
     table.insert(t, url .. 'c:m+-r:rare+-r:mythic')
     table.insert(t, url .. '(r:rare+or+r:mythic)+frame:2015')
     table.insert(t, url .. '(r:rare+or+r:mythic)+-frame:2015')
-    local fSlot = { 'http://api.scryfall.com/cards/random?q=set:cmb1', 'http://api.scryfall.com/cards/random?q=set:fmb1' }
+    local fSlot = { BACKEND_URL..'/random?q=set:cmb1', BACKEND_URL..'/random?q=set:fmb1' }
 
     qTbl.url = 'Mystery Booster'
     if qTbl.name:find('playtest') then
@@ -1287,7 +1292,7 @@ Importer = setmetatable({
   --[[Random]]
   ---@param qTbl callTbl
   Random = function(qTbl)
-    local url, q1 = 'https://api.scryfall.com/cards/random', '?q=is:hires'
+    local url, q1 = BACKEND_URL..'/random', '?q=is:hires'
     if qTbl.name:find('q=') then
       url = url .. qTbl.full:match('%s(%S+)')
     else
