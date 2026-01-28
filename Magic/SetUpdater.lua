@@ -4,6 +4,10 @@ version = 1.1
 author = '76561198045776458'
 self.setName(mod_name..' '..version)
 
+-- Backend Configuration
+-- Change this to your backend URL (use localhost for local testing or deployed URL for production)
+BACKEND_URL='https://mtg-card-importer-backend.onrender.com'
+
 local Sets={}
 function Set(c,s,x,y)
   local nilout={}
@@ -55,7 +59,7 @@ parseList('https://scryfall.com/search?order=set&q=set%3A'..SETCODE..'+is%3Aboos
   'name cmc rarity highres_image small normal type_line colors oracle_text power toughness loyalty')
   ]]
 function updateSets()
-  parseList('https://api.scryfall.com/sets',Sets,
+  parseList(BACKEND_URL..'/sets',Sets,
     'Un%a+ Jumpstart core expansion masters draft_innovation',
     'code name set_type card_count icon_svg_uri')
   local XML = [[<!-- By Amuzet -->
@@ -143,7 +147,7 @@ function setSet()
   broadcastToAll('Loading Cards',{0,0.6,0.6})
   for i=1, Count do
     Wait.time(function()
-        WebRequest.get('https://api.scryfall.com/cards/'..TAG..'/'..i,self,'cardPosition')
+        WebRequest.get(BACKEND_URL..'/cards/'..TAG..'/'..i,self,'cardPosition')
         end,i*0.15)
   end
 end
