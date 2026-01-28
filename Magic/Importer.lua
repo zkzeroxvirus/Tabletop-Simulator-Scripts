@@ -838,7 +838,8 @@ Importer=setmetatable({
         if json.all_parts then
           qTbl.deck=#json.all_parts-1
           for _,v in ipairs(json.all_parts)do if json.id~=v.id then
-              WebRequest.get(v.uri,function(wr)setCard(wr,qTbl)end)end end
+              -- Use backend proxy for token parts instead of direct Scryfall API
+              WebRequest.get(BACKEND_URL..'/cards/'..v.id,function(wr)setCard(wr,qTbl)end)end end
         --What is this elseif json.oracle
         elseif json.object=='card'then
           local oracle=json.oracle_text
@@ -900,7 +901,9 @@ Importer=setmetatable({
         broadcastToAll(cardDat.details,{0.9,0.9,0.9})
 	      endLoop()
       elseif cardDat.object=="card" then
-        WebRequest.get(cardDat.rulings_uri,function(wr)
+        -- Use backend proxy for rulings instead of direct Scryfall API
+        local rulings_endpoint = BACKEND_URL..'/cards/'..cardDat.id..'/rulings'
+        WebRequest.get(rulings_endpoint,function(wr)
           local data,text=JSON.decode(wr.text),'[00cc88]'
           if data.object=='list' then
             data=data.data
